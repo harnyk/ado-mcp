@@ -1,0 +1,12 @@
+[project]
+name = "ado-mcp"
+version = "0.1.0"
+description = "Azure DevOps MCP server for reading work items"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.28.0",
+    "mcp>=1.27.2",
+]
+
+[project.scripts]
+ado-mcp = "server:main"
