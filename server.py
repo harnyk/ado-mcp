@@ -1,4 +1,4 @@
-"""MCP server exposing Azure DevOps work item read tools."""
+"""MCP server exposing Azure DevOps work item tools."""
 
 from __future__ import annotations
 
@@ -71,6 +71,19 @@ def query_work_items(wiql: str, top: int = 50) -> str:
     ids = client.query_wiql(wiql, top=top)
     items = client.get_work_items(ids)
     return _json({"count": len(items), "ids": ids, "items": items})
+
+
+@mcp.tool()
+def add_work_item_comment(work_item_id: int, text: str) -> str:
+    """Add a discussion comment to a work item. Project is resolved from the work item."""
+    return _json(client.add_work_item_comment(work_item_id, text))
+
+
+@mcp.tool()
+def list_work_item_comments(work_item_id: int, top: int = 50) -> str:
+    """List discussion comments on a work item. Project is resolved from the work item."""
+    comments = client.list_work_item_comments(work_item_id, top=top)
+    return _json({"count": len(comments), "comments": comments})
 
 
 def main() -> None:

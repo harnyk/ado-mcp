@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 API_VERSION = "7.1"
+COMMENTS_API_VERSION = "7.1-preview.4"
 
 DEFAULT_FIELDS = [
     "System.Id",
@@ -127,6 +128,50 @@ class AdoClient:
             params={"api-version": API_VERSION},
         )
         return format_work_item(data)
+
+    def _project_for_work_item(self, work_item_id: int) -> str:
+        item = self.get_work_item(work_item_id)
+        project = item.get("fields", {}).get("TeamProject")
+        if not project:
+            raise RuntimeError(f"Work item {work_item_id} has no TeamProject field")
+        return project
+
+    def add_work_item_comment(self, work_item_id: int, text: str) -> dict[str, Any]:
+        project = self._project_for_work_item(work_item_id)
+        data = self._request(
+            "POST",
+            f"{project}/_apis/wit/workItems/{work_item_id}/comments",
+            params={"api-version": COMMENTS_API_VERSION, "format": "markdown"},
+            json={"text": text},
+        )
+        return {
+            "workItemId": data.get("workItemId", work_item_id),
+            "commentId": data.get("id") or data.get("commentId"),
+            "text": data.get("text"),
+            "createdBy": _normalize_field_value(data.get("createdBy")),
+            "createdDate": data.get("createdDate"),
+            "url": data.get("url"),
+        }
+
+    def list_work_item_comments(
+        self, work_item_id: int, top: int = 50
+    ) -> list[dict[str, Any]]:
+        project = self._project_for_work_item(work_item_id)
+        data = self._request(
+            "GET",
+            f"{project}/_apis/wit/workItems/{work_item_id}/comments",
+            params={"api-version": COMMENTS_API_VERSION, "$top": top},
+        )
+        return [
+            {
+                "commentId": comment.get("id"),
+                "text": comment.get("text"),
+                "createdBy": _normalize_field_value(comment.get("createdBy")),
+                "createdDate": comment.get("createdDate"),
+                "modifiedDate": comment.get("modifiedDate"),
+            }
+            for comment in data.get("comments", data.get("value", []))
+        ]
 
     def search_work_items(
         self,
