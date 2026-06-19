@@ -2,15 +2,9 @@
 
 MCP server for Azure DevOps work items (read, search, create, update, comments).
 
-## Setup
+Requires [uv](https://docs.astral.sh/uv/) (includes `uvx`).
 
-Requires [uv](https://docs.astral.sh/uv/) and Python 3.11+.
-
-```bash
-git clone https://github.com/harnyk/ado-mcp.git
-cd ado-mcp
-uv sync
-```
+## Credentials
 
 Create a [PAT](https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate) with **Work Items (Read & write)** scope.
 
@@ -20,35 +14,27 @@ Create a [PAT](https://learn.microsoft.com/en-us/azure/devops/organizations/acco
 | `ADO_ORG` | yes | `MyOrg` |
 | `ADO_HOST` | no | `https://dev.azure.com` (default) |
 
-Quick check:
-
-```bash
-export ADO_TOKEN=... ADO_ORG=CropScience-1
-uv run python ado_test.py
-```
-
 ## Cursor MCP config
 
-Add to `~/.cursor/mcp.json` (adjust `cwd` and token):
+Add to `~/.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "ado-mcp": {
-      "command": "uv",
-      "args": ["run", "python", "server.py"],
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/harnyk/ado-mcp", "ado-mcp"],
       "env": {
         "ADO_TOKEN": "<your-pat>",
         "ADO_HOST": "https://dev.azure.com/",
         "ADO_ORG": "MyOrg"
-      },
-      "cwd": "/path/to/ado-mcp"
+      }
     }
   }
 }
 ```
 
-Reload MCP in Cursor after config or code changes.
+Reload MCP in Cursor after saving the config.
 
 ## Tools
 
