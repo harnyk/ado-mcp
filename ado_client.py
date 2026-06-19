@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -152,6 +153,86 @@ class AdoClient:
             "createdDate": data.get("createdDate"),
             "url": data.get("url"),
         }
+
+    def create_work_item(
+        self,
+        project: str,
+        work_item_type: str,
+        title: str,
+        *,
+        description: str | None = None,
+        assigned_to: str | None = None,
+        area_path: str | None = None,
+        iteration_path: str | None = None,
+        tags: str | None = None,
+        parent_id: int | None = None,
+    ) -> dict[str, Any]:
+        if not title.strip():
+            raise ValueError("title must not be empty")
+
+        operations: list[dict[str, Any]] = [
+            {"op": "add", "path": "/fields/System.Title", "value": title.strip()},
+        ]
+
+        optional_fields: dict[str, str] = {
+            "System.Description": description,
+            "System.AssignedTo": assigned_to,
+            "System.AreaPath": area_path,
+            "System.IterationPath": iteration_path,
+            "System.Tags": tags,
+        }
+        for field, value in optional_fields.items():
+            if value is not None and value.strip():
+                operations.append(
+                    {"op": "add", "path": f"/fields/{field}", "value": value.strip()}
+                )
+
+        if parent_id is not None:
+            operations.append(
+                {
+                    "op": "add",
+                    "path": "/relations/-",
+                    "value": {
+                        "rel": "System.LinkTypes.Hierarchy-Reverse",
+                        "url": f"{self.host}/{self.org}/_apis/wit/workitems/{parent_id}",
+                    },
+                }
+            )
+
+        wi_type = quote(work_item_type.strip(), safe="")
+        data = self._request(
+            "POST",
+            f"{project}/_apis/wit/workitems/${wi_type}",
+            params={"api-version": API_VERSION},
+            json=operations,
+            headers={"Content-Type": "application/json-patch+json"},
+        )
+        return format_work_item(data)
+
+    def update_work_item(
+        self, work_item_id: int, fields: dict[str, Any]
+    ) -> dict[str, Any]:
+        if not fields:
+            raise ValueError("At least one field is required")
+
+        project = self._project_for_work_item(work_item_id)
+        operations = [
+            {"op": "add", "path": f"/fields/{field}", "value": value}
+            for field, value in fields.items()
+        ]
+        data = self._request(
+            "PATCH",
+            f"{project}/_apis/wit/workitems/{work_item_id}",
+            params={"api-version": API_VERSION},
+            json=operations,
+            headers={"Content-Type": "application/json-patch+json"},
+        )
+        return format_work_item(data)
+
+    def update_work_item_state(
+        self, work_item_id: int, state: str
+    ) -> dict[str, Any]:
+        return self.update_work_item(work_item_id, {"System.State": state})
 
     def list_work_item_comments(
         self, work_item_id: int, top: int = 50
