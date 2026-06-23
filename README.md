@@ -44,7 +44,10 @@ Reload MCP in Cursor after saving the config.
 | `get_work_item` | Get work item by ID |
 | `search_tasks` / `search_work_items` | Search by project, type, state, assignee |
 | `query_work_items` | Run WIQL query |
-| `create_work_item` | Create Task, Bug, User Story, etc. (optional `parent_id`) |
-| `update_work_item_state` | Change state |
+| `create_work_item` | Create Task, Bug, User Story, etc. (optional `parent_id`; Description as Markdown) |
+| `update_work_item` | Patch title, description (Markdown), assignee, area/iteration, tags, state |
+| `update_work_item_state` | Change state only |
 | `complete_work_item` | Close/resolve + optional comment |
 | `add_work_item_comment` / `list_work_item_comments` | Discussion thread |
+
+Description and other rich-text fields are stored as Markdown via a `/multilineFieldsFormat/<field>` patch op (ADO defaults to HTML without it).

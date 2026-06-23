@@ -11,6 +11,7 @@ import httpx
 
 API_VERSION = "7.1"
 COMMENTS_API_VERSION = "7.1-preview.4"
+MARKDOWN_FIELDS = frozenset({"System.Description", "System.History"})
 
 DEFAULT_FIELDS = [
     "System.Id",
@@ -78,6 +79,29 @@ class AdoClient:
         if not response.is_success:
             raise RuntimeError(f"ADO API {response.status_code}: {response.text}")
         return response.json()
+
+    @staticmethod
+    def _wit_params() -> dict[str, str]:
+        return {"api-version": API_VERSION}
+
+    @staticmethod
+    def _markdown_format_operations(field_names: Any) -> list[dict[str, Any]]:
+        return [
+            {"op": "add", "path": f"/multilineFieldsFormat/{field}", "value": "Markdown"}
+            for field in field_names
+            if field in MARKDOWN_FIELDS
+        ]
+
+    @staticmethod
+    def _replace_field_operations(fields: dict[str, Any]) -> list[dict[str, Any]]:
+        if not fields:
+            raise ValueError("At least one field is required")
+        operations = [
+            {"op": "replace", "path": f"/fields/{field}", "value": value}
+            for field, value in fields.items()
+        ]
+        operations.extend(AdoClient._markdown_format_operations(fields.keys()))
+        return operations
 
     def list_projects(self, top: int = 100) -> list[dict[str, Any]]:
         data = self._request(
@@ -200,39 +224,68 @@ class AdoClient:
             )
 
         wi_type = quote(work_item_type.strip(), safe="")
+        field_names = [
+            op["path"].removeprefix("/fields/")
+            for op in operations
+            if op["path"].startswith("/fields/")
+        ]
+        operations.extend(self._markdown_format_operations(field_names))
         data = self._request(
             "POST",
             f"{project}/_apis/wit/workitems/${wi_type}",
-            params={"api-version": API_VERSION},
+            params=self._wit_params(),
+            json=operations,
+            headers={"Content-Type": "application/json-patch+json"},
+        )
+        return format_work_item(data)
+
+    def patch_work_item(
+        self, work_item_id: int, fields: dict[str, Any]
+    ) -> dict[str, Any]:
+        project = self._project_for_work_item(work_item_id)
+        operations = self._replace_field_operations(fields)
+        data = self._request(
+            "PATCH",
+            f"{project}/_apis/wit/workitems/{work_item_id}",
+            params=self._wit_params(),
             json=operations,
             headers={"Content-Type": "application/json-patch+json"},
         )
         return format_work_item(data)
 
     def update_work_item(
-        self, work_item_id: int, fields: dict[str, Any]
+        self,
+        work_item_id: int,
+        *,
+        title: str | None = None,
+        description: str | None = None,
+        assigned_to: str | None = None,
+        area_path: str | None = None,
+        iteration_path: str | None = None,
+        tags: str | None = None,
+        state: str | None = None,
     ) -> dict[str, Any]:
-        if not fields:
-            raise ValueError("At least one field is required")
-
-        project = self._project_for_work_item(work_item_id)
-        operations = [
-            {"op": "add", "path": f"/fields/{field}", "value": value}
-            for field, value in fields.items()
-        ]
-        data = self._request(
-            "PATCH",
-            f"{project}/_apis/wit/workitems/{work_item_id}",
-            params={"api-version": API_VERSION},
-            json=operations,
-            headers={"Content-Type": "application/json-patch+json"},
-        )
-        return format_work_item(data)
+        """Patch one or more fields on an existing work item (Markdown for Description)."""
+        optional_fields: dict[str, Any] = {
+            "System.Title": title.strip() if title else None,
+            "System.Description": description,
+            "System.AssignedTo": assigned_to,
+            "System.AreaPath": area_path,
+            "System.IterationPath": iteration_path,
+            "System.Tags": tags,
+            "System.State": state,
+        }
+        fields = {
+            field: value
+            for field, value in optional_fields.items()
+            if value is not None and (not isinstance(value, str) or value.strip())
+        }
+        return self.patch_work_item(work_item_id, fields)
 
     def update_work_item_state(
         self, work_item_id: int, state: str
     ) -> dict[str, Any]:
-        return self.update_work_item(work_item_id, {"System.State": state})
+        return self.patch_work_item(work_item_id, {"System.State": state})
 
     def list_work_item_comments(
         self, work_item_id: int, top: int = 50

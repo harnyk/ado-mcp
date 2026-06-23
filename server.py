@@ -44,6 +44,7 @@ def create_work_item(
 
     Optional parent_id links the new item as a child of an existing work item.
     assigned_to accepts an email or display name recognized by Azure DevOps.
+    description is sent as Markdown (multilineFieldsFormat=Markdown).
     """
     return _json(
         client.create_work_item(
@@ -109,6 +110,35 @@ def query_work_items(wiql: str, top: int = 50) -> str:
 def update_work_item_state(work_item_id: int, state: str) -> str:
     """Update the state of a work item (e.g. Active, Closed, Resolved)."""
     return _json(client.update_work_item_state(work_item_id, state))
+
+
+@mcp.tool()
+def update_work_item(
+    work_item_id: int,
+    title: str | None = None,
+    description: str | None = None,
+    assigned_to: str | None = None,
+    area_path: str | None = None,
+    iteration_path: str | None = None,
+    tags: str | None = None,
+    state: str | None = None,
+) -> str:
+    """Patch fields on an existing work item. Description accepts Markdown (rendered in ADO).
+
+    Provide at least one of: title, description, assigned_to, area_path, iteration_path, tags, state.
+    """
+    return _json(
+        client.update_work_item(
+            work_item_id,
+            title=title,
+            description=description,
+            assigned_to=assigned_to,
+            area_path=area_path,
+            iteration_path=iteration_path,
+            tags=tags,
+            state=state,
+        )
+    )
 
 
 @mcp.tool()
