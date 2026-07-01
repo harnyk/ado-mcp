@@ -107,6 +107,12 @@ def query_work_items(wiql: str, top: int = 50) -> str:
 
 
 @mcp.tool()
+def link_work_item_parent(work_item_id: int, parent_id: int) -> str:
+    """Link an existing work item as a child of parent_id (same as create_work_item parent_id)."""
+    return _json(client.link_work_item_parent(work_item_id, parent_id))
+
+
+@mcp.tool()
 def update_work_item_state(work_item_id: int, state: str) -> str:
     """Update the state of a work item (e.g. Active, Closed, Resolved)."""
     return _json(client.update_work_item_state(work_item_id, state))

@@ -239,6 +239,30 @@ class AdoClient:
         )
         return format_work_item(data)
 
+    def link_work_item_parent(
+        self, work_item_id: int, parent_id: int
+    ) -> dict[str, Any]:
+        """Link an existing work item as a child of parent_id (hierarchy relation)."""
+        project = self._project_for_work_item(work_item_id)
+        operations = [
+            {
+                "op": "add",
+                "path": "/relations/-",
+                "value": {
+                    "rel": "System.LinkTypes.Hierarchy-Reverse",
+                    "url": f"{self.host}/{self.org}/_apis/wit/workitems/{parent_id}",
+                },
+            }
+        ]
+        data = self._request(
+            "PATCH",
+            f"{project}/_apis/wit/workitems/{work_item_id}",
+            params=self._wit_params(),
+            json=operations,
+            headers={"Content-Type": "application/json-patch+json"},
+        )
+        return format_work_item(data)
+
     def patch_work_item(
         self, work_item_id: int, fields: dict[str, Any]
     ) -> dict[str, Any]:
